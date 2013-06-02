@@ -18,7 +18,7 @@
 
 package chittoda;
 
-import chittoda.CacheKeyIntf;
+import chittoda.CacheKeyRunnable;
 
 /**
  * ThreadPool interface
@@ -35,7 +35,10 @@ public interface ThreadPoolIntf {
 	 * 		Task that needs to be processed
 	 * @return
 	 */
-	public Integer assignTask(CacheKeyIntf<? extends Object> key, Runnable task);
+	public Integer assignTask(CacheKeyRunnable<? extends Object> task);
 	
+	public void shutdown();
+	
+	public void shutdownNow();
 	
 }

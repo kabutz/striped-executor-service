@@ -24,7 +24,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import chittoda.FSMThreadPool;
-import chittoda.CacheKeyIntf;
+import chittoda.CacheKeyRunnable;
 import static junit.framework.Assert.*;
 
 /**
@@ -48,7 +48,7 @@ public class FSMThreadPoolTest {
 		
 		for (int i = 0; i < SIZE; i++) {
 			// Clients that will assign the tasks in FSMThreadPool
-			Thread machine = new FSMMachine(new MyCacheKey("Key-" + (i+1)), 50);
+			Thread machine = new FSMMachine("Key-" + (i+1), 50);
 			machine.start();
 		}
 		
@@ -63,14 +63,14 @@ public class FSMThreadPoolTest {
 	 */
 	public class FSMMachine extends Thread{
 		private final int size;
-		private final MyCacheKey key;
+		private final String key;
 		
 		/**
 		 * Machine created with parameters 
 		 * @param key Key for doing the task sequencing
 		 * @param events Number of events/tasks to be assigned/queued
 		 */
-		public FSMMachine(MyCacheKey key, int events) {
+		public FSMMachine(String key, int events) {
 			this.key = key;
 			this.size = events;
 		}
@@ -79,56 +79,43 @@ public class FSMThreadPoolTest {
 			AtomicInteger atomicInt = new AtomicInteger(0);
 			for (int i = 0; i < size; i++) {			
 				Task task = new Task(key, atomicInt, i);
-				threadPool.assignTask(key, task);
+				threadPool.assignTask(task);
 			}
 		}
 	}
 	
-	/**
-	 * A class that is a type of CacheKeyIntf
-	 * So it should implement getKey().
-	 * FSMThreadPool will get the key using getKey() method
-	 * @author Jitendra Chittoda
-	 *
-	 */
-	class MyCacheKey implements CacheKeyIntf<String> {
-
-		String key = null;
-		public MyCacheKey(String key) {
-			this.key = key;
-		}
-		@Override
-		public String getKey() {
-			
-			return key;
-		}
-		
-	}
 	
 	/**
 	 * Plain task that would simply log the statement 
 	 * @author Jitendra Chittoda
 	 *
 	 */
-	class Task implements Runnable
+	class Task implements CacheKeyRunnable<String>
 	{
 		private final int event;
-		private final MyCacheKey key;
+		private final String key;
 		private final AtomicInteger atomicInt;
-		public Task(MyCacheKey key, AtomicInteger expected, int event) {
+		public Task(String key, AtomicInteger expected, int event) {
 			this.key = key;
 			this.event = event;
 			this.atomicInt = expected;
 		}
+		
+		@Override
+		public String getKey() {
+			
+			return key;
+		}
+		
 		@Override
 		public void run() {
-			System.out.println("Thread["+Thread.currentThread().getId()+"] key[" + key.getKey() + "] expected[" + atomicInt.get() + "] got["+event+"]");
+			System.out.println("Thread["+Thread.currentThread().getId()+"] key[" + key + "] expected[" + atomicInt.get() + "] got["+event+"]");
 			int actual=atomicInt.getAndIncrement();
 			assertEquals("Thread["+Thread.currentThread().getId()+"] expected[" + event + "] got["+actual+"]", event, actual);
 		}
 		
 		public String toString(){
-			return "k["+key.getKey()+"] e["+atomicInt.get()+"] a["+event+"]";
+			return "k["+key+"] e["+atomicInt.get()+"] a["+event+"]";
 		}
 	}
 	

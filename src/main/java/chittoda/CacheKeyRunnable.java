@@ -28,7 +28,7 @@ package chittoda;
  *
  * @param <T>
  */
-public interface CacheKeyIntf<T> {
+public interface CacheKeyRunnable<T> extends Runnable {
 
 	/**
 	 * Key of type T, which would be tell FSMThreadPool to sequentialise the

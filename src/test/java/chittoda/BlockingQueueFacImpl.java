@@ -20,6 +20,7 @@ package chittoda;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import chittoda.BlockingQueueFactory;
 
@@ -33,7 +34,8 @@ public class BlockingQueueFacImpl implements BlockingQueueFactory {
 	
 	@Override
 	public BlockingQueue<Runnable> createBlockingQueue() {
-		return new ArrayBlockingQueue<Runnable>(1024);
+		//return new ArrayBlockingQueue<Runnable>(1024);
+		return new LinkedBlockingQueue<>();
 	}
 
 	

@@ -18,7 +18,7 @@
 
 package chittoda;
 
-import chittoda.CacheKeyIntf;
+import chittoda.CacheKeyRunnable;
 
 /**
  * 
@@ -27,7 +27,7 @@ import chittoda.CacheKeyIntf;
  */
 public abstract class AbstractThreadPool implements ThreadPoolIntf {
 
-	public Integer assignTask(CacheKeyIntf<? extends Object> key, Runnable task)
+	public Integer assignTask(CacheKeyRunnable<? extends Object> task)
 	{
 		return null;
 	}

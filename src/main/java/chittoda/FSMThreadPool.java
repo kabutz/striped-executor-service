@@ -19,12 +19,14 @@
 
 package chittoda;
 
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import chittoda.CacheKeyIntf;
-import chittoda.AbstractThreadPool;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * FSMThreadPool which will maintain the execution order of Task
@@ -37,7 +39,7 @@ import chittoda.AbstractThreadPool;
 public class FSMThreadPool extends AbstractThreadPool {
 
 	//Number of threads to start
-	private final int size;
+	private final int SIZE;
 	
 	//For round robin scheduling
 	private Integer indexer = -1;
@@ -46,7 +48,7 @@ public class FSMThreadPool extends AbstractThreadPool {
 	private final boolean isKeyIndexCacheEnabled;
 	
 	//Cache to map Key and Index assigned
-	private ConcurrentHashMap<Object, Integer> keyCache; 
+	private IdentityHashMap<Object, Integer> keyCache; 
 	
 	//BlockingQueue factory
 	private final BlockingQueueFactory queueFactory;
@@ -54,6 +56,12 @@ public class FSMThreadPool extends AbstractThreadPool {
 	//Task queue array
 	//We could have used Map to store queue, but direct index access would be faster
 	private final BlockingQueue<Runnable>[] queueArray;
+	
+	private final ReentrantLock lock = new ReentrantLock();
+	
+	private final Condition shutdownCondition = lock.newCondition();
+	
+	private final List<Worker> workers = new CopyOnWriteArrayList<>(); 
 	
 	/**
 	 * 
@@ -65,7 +73,7 @@ public class FSMThreadPool extends AbstractThreadPool {
 	public FSMThreadPool(int size, BlockingQueueFactory queueFactory
 			, boolean isKeyIndexCacheEnabled) {
 		
-		this.size = size;
+		this.SIZE = size;
 		this.queueFactory = queueFactory;
 		this.isKeyIndexCacheEnabled = isKeyIndexCacheEnabled;
 		
@@ -77,14 +85,16 @@ public class FSMThreadPool extends AbstractThreadPool {
 	 * Initialise queue and Threads
 	 */
 	private void init(){
-		for (int i = 0; i <= size-1; i++) {
+		for (int i = 0; i <= SIZE-1; i++) {
 			queueArray[i] = queueFactory.createBlockingQueue();
-			Thread thr = new Thread(new Worker(queueArray[i]));
-			thr.start();
+			Worker worker = new Worker(queueArray[i]);
+			workers.add(worker);
+			Thread thr = new Thread(worker);
+			thr.start();			
 		}
 		
 		if(isKeyIndexCacheEnabled)
-			keyCache = new ConcurrentHashMap<Object, Integer>();
+			keyCache = new IdentityHashMap<>();
 	}
 	
 	/**
@@ -92,17 +102,17 @@ public class FSMThreadPool extends AbstractThreadPool {
 	 * @param key Key to maintain the sequence of tasks
 	 * @param task Task that is to be executed
 	 */
-	public Integer assignTask(CacheKeyIntf<? extends Object> key, Runnable task){
+	public Integer assignTask(CacheKeyRunnable<? extends Object> task){
 		
 		
-		Integer index = keyCache.get(key.getKey());
+		Integer index = keyCache.get(task.getKey());
 		
 		//When index is not assigned to Key
 		if(index == null)
 		{
 			//Get round robin index for queue to be used
 			index = getRoundRobinIndex();
-			keyCache.put(key.getKey(), index);
+			keyCache.put(task.getKey(), index);
 		}
 			
 		
@@ -127,18 +137,68 @@ public class FSMThreadPool extends AbstractThreadPool {
 		int index;
 		
 		//When size is 1, directly return 0 index 
-		if(size == 1)
+		if(SIZE == 1)
 			return 0;
 		
-		synchronized (indexer) {
-			if(indexer >= size-1)
-				indexer = -1;
-			
-			indexer++;
-			index = indexer;
-		}
+		lock.lock();
+	
+		if(indexer >= SIZE-1)
+			indexer = -1;
+		
+		indexer++;
+		index = indexer;
+		
+		lock.unlock();
 		
 		return index;
 	}
+
+	@Override
+	public void shutdown() {
+		
+		for (Worker worker : workers) {
+			worker.shutdown(new Worker.ShutdownListener() {				
+				@Override
+				public void shutdownComplete(Worker worker) {					
+					workers.remove(worker);
+					if(workers.size() == 0){
+						lock.lock();
+						try{ shutdownCondition.signal(); }
+						finally{ lock.unlock(); }
+					}
+				}
+			});
+			
+		}
+		
+	}
+	
+    public boolean awaitTermination(long timeout, TimeUnit unit)
+            throws InterruptedException {
+        lock.lock();
+        try{
+	        
+	        long waitUntil = System.nanoTime() + unit.toNanos(timeout);
+	        long remainingTime;
+	        while ((remainingTime = waitUntil - System.nanoTime()) > 0
+	                && !workers.isEmpty()) {
+	            shutdownCondition.awaitNanos(remainingTime);
+	        }
+	        if (remainingTime <= 0) return false;
+        } finally {
+        	lock.unlock();
+        }
+        
+        return true;        
+    }
+
+
+    //TODO
+	@Override
+	public void shutdownNow() {
+		// TODO Auto-generated method stub
+		
+	}
+	
 	
 }

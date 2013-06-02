@@ -18,6 +18,8 @@
 
 package chittoda;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 
 /**
@@ -30,6 +32,8 @@ public class Worker implements Runnable {
 
 	//Task Queue
 	private final BlockingQueue<Runnable> taskQueue;
+	private boolean isStopped = false;
+	private ShutdownListener shutdownListener = null;
 	
 	public Worker(BlockingQueue<Runnable> taskQueue) {
 		this.taskQueue = taskQueue;
@@ -46,12 +50,67 @@ public class Worker implements Runnable {
 				//in a thread
 				task.run();
 			}
+			catch(PoisonPillException ppe){
+				//ppe.printStackTrace();
+				isStopped = true;
+				shutdownListener.shutdownComplete(this);
+				break;
+			}
 			catch(Exception e){
 				e.printStackTrace();
 			}
 		}
 		
 	}
-
 	
+	public void shutdownNow(){
+		//Putting a poison pill in queue ;-)
+		taskQueue.add(new Runnable() {
+			
+			@Override
+			public void run() {
+				throw new PoisonPillException();
+			}
+		});
+	}
+
+	public void shutdown(ShutdownListener shutdownListener){
+		this.shutdownListener = shutdownListener;
+		shutdown();
+	}
+	
+	public void shutdown(){
+		taskQueue.add(new Runnable() {			
+			@Override
+			public void run() {
+				if (taskQueue.isEmpty()){
+					shutdownNow();
+				} else {
+					shutdown();
+				}
+			}
+		});
+	}
+	
+	public List<Runnable> getUnfinishedTasks(){
+		if(isWorkerStopped()){
+			List<Runnable> unfinishedTasks = new ArrayList<>();
+			taskQueue.drainTo(unfinishedTasks);
+			return unfinishedTasks;
+		} else {
+			throw new IllegalStateException("Worker not stopped yet.");
+		}
+	}
+	
+	public boolean isWorkerStopped(){
+		return isStopped;
+	}
+	
+	public interface ShutdownListener {
+		public void shutdownComplete(Worker worker);
+	}
+	
+	private static class PoisonPillException extends RuntimeException {
+		
+	}
 }
