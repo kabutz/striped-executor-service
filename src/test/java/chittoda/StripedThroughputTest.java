@@ -49,9 +49,9 @@ public class StripedThroughputTest {
     }
 
     private static void testMyImpl(FSMThreadPool pool) throws InterruptedException {
-        Object[] stripes = new Object[STRIPES];
+        String[] stripes = new String[STRIPES];
         for (int i = 0; i < stripes.length; i++) {
-            stripes[i] = new Object();
+            stripes[i] = "stripe-" + i;
         }
 
         long time = System.currentTimeMillis();
@@ -79,9 +79,9 @@ public class StripedThroughputTest {
     }
     
     private static void test(ExecutorService pool) throws InterruptedException {
-        Object[] stripes = new Object[STRIPES];
+        String[] stripes = new String[STRIPES];
         for (int i = 0; i < stripes.length; i++) {
-            stripes[i] = new Object();
+            stripes[i] = "stripe-" + i;
         }
 
         long time = System.currentTimeMillis();
