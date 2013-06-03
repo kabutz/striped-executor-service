@@ -18,6 +18,8 @@
 
 package chittoda;
 
+import java.util.List;
+
 import chittoda.CacheKeyRunnable;
 
 /**
@@ -39,6 +41,6 @@ public interface ThreadPoolIntf {
 	
 	public void shutdown();
 	
-	public void shutdownNow();
+	public List<Runnable> shutdownNow();
 	
 }

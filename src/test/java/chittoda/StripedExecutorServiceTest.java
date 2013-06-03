@@ -31,6 +31,9 @@ import static junit.framework.Assert.*;
  * @author Jitendra Chittoda
  */
 public class StripedExecutorServiceTest {
+	
+	private static AtomicInteger stripeAtomicInteger = new AtomicInteger();
+	
     @Before
     public void initialize() {
         TestRunnable.outOfSequence = false;
@@ -42,7 +45,7 @@ public class StripedExecutorServiceTest {
     public void testSingleStripeRunnable() throws InterruptedException {
         //ExecutorService pool = new StripedExecutorService();
         FSMThreadPool threadPool = new FSMThreadPool(10, new BlockingQueueFacImpl(), true);
-        Object stripe = new Object();
+        String stripe = "stripe";
         AtomicInteger actual = new AtomicInteger(0);
         for (int i = 0; i < 100; i++) {
         	TestRunnable r = new TestRunnable(stripe, actual, i);
@@ -65,7 +68,7 @@ public class StripedExecutorServiceTest {
             public void run() {
                 //ExecutorService pool = new StripedExecutorService();
             	FSMThreadPool pool = new FSMThreadPool(10, new BlockingQueueFacImpl(), true);
-                Object stripe = new Object();
+                String stripe = "stripe";
                 AtomicInteger actual = new AtomicInteger(0);
                 for (int i = 0; i < 100; i++) {
                 	TestRunnable r = new TestRunnable(stripe, actual, i);
@@ -85,26 +88,26 @@ public class StripedExecutorServiceTest {
         assertEquals(0, group.activeCount());
     }
 
-//    @Test
-//    public void testShutdownNow() throws InterruptedException {
-//        ExecutorService pool = new StripedExecutorService();
-//        Object stripe = new Object();
-//        AtomicInteger actual = new AtomicInteger(0);
-//        for (int i = 0; i < 100; i++) {
-//            pool.submit(new TestRunnable(stripe, actual, i));
-//        }
-//        Thread.sleep(500);
-//        assertFalse(pool.isTerminated());
-//        Collection<Runnable> unfinishedJobs = pool.shutdownNow();
-//
-//        assertTrue(pool.isShutdown());
-//        assertTrue(pool.awaitTermination(1, TimeUnit.MINUTES));
-//        assertTrue(pool.isTerminated());
-//
-//        assertTrue(unfinishedJobs.size() > 0);
-//
-//        assertEquals(100, unfinishedJobs.size() + actual.intValue());
-//    }
+    @Test
+    public void testShutdownNow() throws InterruptedException {
+    	FSMThreadPool pool = new FSMThreadPool(10, new BlockingQueueFacImpl(), true);
+        String stripe = "stripe";
+        AtomicInteger actual = new AtomicInteger(0);
+        for (int i = 0; i < 100; i++) {
+            pool.assignTask(new TestRunnable(stripe, actual, i));
+        }
+        //Thread.sleep(500);
+        //assertFalse(pool.isTerminated());
+        Collection<Runnable> unfinishedJobs = pool.shutdownNow();
+
+        //assertTrue(pool.isShutdown());
+        assertTrue(pool.awaitTermination(1, TimeUnit.MINUTES));
+        //assertTrue(pool.isTerminated());
+
+        assertTrue(unfinishedJobs.size() > 0);
+
+        assertEquals(100, unfinishedJobs.size() + actual.intValue());
+    }
 
 //    @Test
 //    public void testSingleStripeCallableWithCompletionService() throws InterruptedException, ExecutionException {
@@ -159,10 +162,11 @@ public class StripedExecutorServiceTest {
     public void testMultipleStripes() throws InterruptedException {
     	final FSMThreadPool pool = new FSMThreadPool(10, new BlockingQueueFacImpl(), true);
         ExecutorService producerPool = Executors.newCachedThreadPool();
+        stripeAtomicInteger.set(0);
         for (int i = 0; i < 20; i++) {
             producerPool.submit(new Runnable() {
                 public void run() {
-                    Object stripe = new Object();
+                    String stripe = "stripe-" + stripeAtomicInteger.getAndIncrement();
                     AtomicInteger actual = new AtomicInteger(0);
                     for (int i = 0; i < 100; i++) {
                     	TestRunnable r = new TestRunnable(stripe, actual, i);
@@ -187,10 +191,11 @@ public class StripedExecutorServiceTest {
     public void testMultipleFastStripes() throws InterruptedException {
     	final FSMThreadPool pool = new FSMThreadPool(10, new BlockingQueueFacImpl(), true);
         ExecutorService producerPool = Executors.newCachedThreadPool();
+        stripeAtomicInteger.set(0);
         for (int i = 0; i < 20; i++) {
             producerPool.submit(new Runnable() {
                 public void run() {
-                    Object stripe = new Object();
+                	String stripe = "stripe-" + stripeAtomicInteger.getAndIncrement();
                     AtomicInteger actual = new AtomicInteger(0);
                     for (int i = 0; i < 100; i++) {
                     	TestFastRunnable r = new TestFastRunnable(stripe, actual, i);

@@ -22,7 +22,9 @@ package chittoda;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
@@ -48,7 +50,7 @@ public class FSMThreadPool extends AbstractThreadPool {
 	private final boolean isKeyIndexCacheEnabled;
 	
 	//Cache to map Key and Index assigned
-	private IdentityHashMap<Object, Integer> keyCache; 
+	private Map<Object, Integer> keyCache; 
 	
 	//BlockingQueue factory
 	private final BlockingQueueFactory queueFactory;
@@ -90,11 +92,12 @@ public class FSMThreadPool extends AbstractThreadPool {
 			Worker worker = new Worker(queueArray[i]);
 			workers.add(worker);
 			Thread thr = new Thread(worker);
+			worker.setThread(thr);
 			thr.start();			
 		}
 		
 		if(isKeyIndexCacheEnabled)
-			keyCache = new IdentityHashMap<>();
+			keyCache = new ConcurrentHashMap<>();
 	}
 	
 	/**
@@ -108,11 +111,17 @@ public class FSMThreadPool extends AbstractThreadPool {
 		Integer index = keyCache.get(task.getKey());
 		
 		//When index is not assigned to Key
-		if(index == null)
-		{
-			//Get round robin index for queue to be used
-			index = getRoundRobinIndex();
-			keyCache.put(task.getKey(), index);
+		if(index == null) {
+			lock.lock();
+			try{
+				if( (index = keyCache.get(task.getKey())) == null) {
+					//Get round robin index for queue to be used
+					index = getRoundRobinIndex();
+					keyCache.put(task.getKey(), index);
+				}
+			} finally {
+				lock.unlock();
+			}
 		}
 			
 		
@@ -195,9 +204,33 @@ public class FSMThreadPool extends AbstractThreadPool {
 
     //TODO
 	@Override
-	public void shutdownNow() {
-		// TODO Auto-generated method stub
+	public List<Runnable> shutdownNow() {
+		final List<Runnable> unfinishedTasks = new ArrayList<>();
 		
+		for (Worker worker : workers) {
+			worker.shutdownNow(new Worker.ShutdownListener() {
+				
+				@Override
+				public void shutdownComplete(Worker worker) {
+					assert worker.isWorkerStopped();
+					unfinishedTasks.addAll(worker.getUnfinishedTasks());
+					workers.remove(worker);
+					if(workers.size() == 0){
+						lock.lock();
+						try{ shutdownCondition.signal(); }
+						finally{ lock.unlock(); }
+					}
+				}
+			});
+		}
+		
+		lock.lock();
+		try{
+			shutdownCondition.await();
+		} catch (InterruptedException e) {			
+			e.printStackTrace();
+		} finally { lock.unlock(); }
+		return unfinishedTasks;
 	}
 	
 	

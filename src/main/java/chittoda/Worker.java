@@ -28,12 +28,13 @@ import java.util.concurrent.BlockingQueue;
  * @author Jitendra Chittoda
  *
  */
-public class Worker implements Runnable {
+class Worker implements Runnable {
 
 	//Task Queue
 	private final BlockingQueue<Runnable> taskQueue;
 	private boolean isStopped = false;
 	private ShutdownListener shutdownListener = null;
+	private Thread thread;
 	
 	public Worker(BlockingQueue<Runnable> taskQueue) {
 		this.taskQueue = taskQueue;
@@ -50,7 +51,7 @@ public class Worker implements Runnable {
 				//in a thread
 				task.run();
 			}
-			catch(PoisonPillException ppe){
+			catch(PoisonPillException | InterruptedException e){
 				//ppe.printStackTrace();
 				isStopped = true;
 				shutdownListener.shutdownComplete(this);
@@ -63,20 +64,18 @@ public class Worker implements Runnable {
 		
 	}
 	
-	public void shutdownNow(){
-		//Putting a poison pill in queue ;-)
-		taskQueue.add(new Runnable() {
-			
-			@Override
-			public void run() {
-				throw new PoisonPillException();
-			}
-		});
+	public void shutdownNow(ShutdownListener shutdownListener){
+		this.shutdownListener = shutdownListener;
+		this.shutdownNow();
+	}
+	
+	public void shutdownNow() {		
+		this.thread.interrupt();		
 	}
 
 	public void shutdown(ShutdownListener shutdownListener){
 		this.shutdownListener = shutdownListener;
-		shutdown();
+		this.shutdown();
 	}
 	
 	public void shutdown(){
@@ -90,6 +89,10 @@ public class Worker implements Runnable {
 				}
 			}
 		});
+	}
+	
+	public void setThread(Thread thread) {
+		this.thread = thread;
 	}
 	
 	public List<Runnable> getUnfinishedTasks(){
