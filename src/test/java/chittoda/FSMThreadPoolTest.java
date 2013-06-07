@@ -41,7 +41,7 @@ public class FSMThreadPoolTest {
 	 * Initialize the FSMThreadPool and clients 
 	 * 
 	 */
-	@Before
+	
 	public void init() {
 		
 		threadPool = new FSMThreadPool(SIZE, new BlockingQueueFacImpl(), true);
@@ -122,15 +122,10 @@ public class FSMThreadPoolTest {
 	@Test
 	public void testFSM() {
 
-		FSMThreadPoolTest tester = new FSMThreadPoolTest();
-		tester.init();
+		this.init();
 		
-		try {
-			Thread.sleep(2000, 1);
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		
+		threadPool.shutdown();
 		
 	}
 
