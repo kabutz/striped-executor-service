@@ -228,7 +228,7 @@ public class StripedExecutorServiceTest {
             if (actual != expected) {
                 outOfSequence = true;
             }
-            System.out.printf("Execute strip %h %d %d%n", stripe, actual, expected);
+            System.out.printf("Execute stripe %h %d %d%n", stripe, actual, expected);
             assertEquals("out of sequence", actual, expected);
         }
     }
@@ -254,7 +254,7 @@ public class StripedExecutorServiceTest {
             if (actual != expected) {
                 outOfSequence = true;
             }
-            System.out.printf("Execute strip %h %d %d%n", stripe, actual, expected);
+            System.out.printf("Execute stripe %h %d %d%n", stripe, actual, expected);
             assertEquals("out of sequence", actual, expected);
         }
     }
